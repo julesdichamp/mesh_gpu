@@ -43,6 +43,36 @@ RUN git clone --depth 1 https://github.com/LoicMarechal/libMeshb /tmp/libMeshb &
     cmake --install /tmp/libMeshb/build && \
     rm -rf /tmp/libMeshb
 
+# --- Kokkos (performance portability, for the Kokkos exercises) -------------
+# Build Kokkos with the CUDA backend (+ Serial host) so the *_kokkos programs run
+# on the GPU. Set the arch for YOUR card with `--build-arg CUDA_ARCH=<sm>`:
+# V100=70, T4=75, A100=80, A10/RTX30=86, L4/L40=89, H100=90. nvcc comes from the
+# CUDA base image. (Compiling Kokkos for CUDA needs nvcc but not a physical GPU.)
+#
+# Kokkos 4.7.x + C++17 on purpose: Kokkos 5.x requires C++20, which nvcc 12.6
+# cannot compile against libstdc++ (host-STL errors); 4.x at C++17 compiles clean.
+ARG CUDA_ARCH=75
+RUN git clone --depth 1 --branch 4.7.04 https://github.com/kokkos/kokkos /tmp/kokkos && \
+    # Kokkos needs its own arch flag (-DKokkos_ARCH_<NAME>=ON); it ignores
+    # CMAKE_CUDA_ARCHITECTURES and its GPU auto-detect fails at build time (no GPU
+    # in the builder). Map the sm number to the Kokkos name.
+    case "${CUDA_ARCH}" in \
+        70) KARCH=VOLTA70 ;; \
+        75) KARCH=TURING75 ;; \
+        80) KARCH=AMPERE80 ;; \
+        86) KARCH=AMPERE86 ;; \
+        89) KARCH=ADA89 ;; \
+        90) KARCH=HOPPER90 ;; \
+        *) echo "Unsupported CUDA_ARCH=${CUDA_ARCH} (use 70/75/80/86/89/90)"; exit 1 ;; \
+    esac && \
+    cmake -S /tmp/kokkos -B /tmp/kokkos/build -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_CXX_STANDARD=17 \
+        -DKokkos_ENABLE_SERIAL=ON -DKokkos_ENABLE_CUDA=ON \
+        -DKokkos_ARCH_${KARCH}=ON && \
+    cmake --build /tmp/kokkos/build -j"$(nproc)" && \
+    cmake --install /tmp/kokkos/build && \
+    rm -rf /tmp/kokkos
+
 # --- ViZiR 4 (visualization) -----------------------------------------------
 # Unpack the precompiled INRIA binary into /opt and expose its launcher.
 # NB: vizir4.sh derives its install dir from $0, so it must be called by its real
