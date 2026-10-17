@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
                 hy(i) = mesh.coordinates[i][1];
             }
             for (int t = 0; t < n_tri; ++t) {
-                for (int k = 0; k < 3; ++k) { 
+                for (int k = 0; k < 3; ++k) {
                     htri(3 * t + k) = mesh.triangles[t][k] - 1;  // 1-based -> 0-based
                 }
             }
@@ -63,15 +63,19 @@ int main(int argc, char** argv) {
             Kokkos::deep_copy(y, hy);
             Kokkos::deep_copy(tri, htri);
 
-            // ---- One work-item per triangle; reduce the signed areas --------
+            // ---- Per-triangle areas, then reduce ----------------------------
+            Kokkos::View<double*> area("area", n_tri);
+            Kokkos::parallel_for("triangle_areas", n_tri, KOKKOS_LAMBDA(int t) {
+                int a = tri(3 * t), b = tri(3 * t + 1), c = tri(3 * t + 2);
+                double abx = x(b) - x(a), aby = y(b) - y(a);
+                double acx = x(c) - x(a), acy = y(c) - y(a);
+                area(t) = 0.5 * (abx * acy - acx * aby);
+            });
+
             double total = 0.0;
-            Kokkos::parallel_reduce("triangle_areas", n_tri,
-                KOKKOS_LAMBDA(int t, double& sum) {
-                    int a = tri(3 * t), b = tri(3 * t + 1), c = tri(3 * t + 2);
-                    double abx = x(b) - x(a), aby = y(b) - y(a);
-                    double acx = x(c) - x(a), acy = y(c) - y(a);
-                    sum += 0.5 * (abx * acy - acx * aby);
-                }, total);
+            Kokkos::parallel_reduce("sum_area", n_tri,
+                KOKKOS_LAMBDA(int t, double& sum) { sum += area(t); }, total);
+
 
             // ---- Report -----------------------------------------------------
             std::printf("triangles: %d, total area = %.15g\n", n_tri, total);
