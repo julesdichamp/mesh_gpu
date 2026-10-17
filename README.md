@@ -43,9 +43,7 @@ Provided twice with identical math, once per framework:
 - CUDA -- `source/cuda/area_triangles.cu`, `source/cuda/area_median_cells.cu`
 - Kokkos -- `source/kokkos/area_triangles.cpp`, `source/kokkos/area_median_cells.cpp`
 
-Validated here on CPU via the Kokkos Serial backend: on `unit_square_132` both
-totals are exactly `1`; on `unit_square_11k` they agree to ~1e-14. (The CUDA
-sources compile with `nvcc`; running them needs an NVIDIA GPU -- see below.)
+Validated on CPU via the Kokkos Serial backend.
 
 ## Build and run the project
 
@@ -74,9 +72,8 @@ docker run -it --rm \
     mesh_gpu
 ```
 
-Assuming you launched the `docker run` command one level up from the `source`
-directory, build out-of-source (pass the same arch as above so the CUDA targets
-match your GPU):
+Assuming you launched the `docker run` command one level up from the `source` directory, 
+build out-of-source (pass the same arch as above so the CUDA targets match your GPU):
 ```sh
 cd /workspace
 cmake -S source -B build -DCMAKE_CUDA_ARCHITECTURES=75
@@ -119,10 +116,9 @@ Match `CUDA_ARCH`/`-DCMAKE_CUDA_ARCHITECTURES` to the VM's GPU.
 
 For a **free** run of the CUDA exercises, open **`colab/mesh_gpu_colab.ipynb`** in
 Google Colab (free NVIDIA T4, `sm_75`). Colab has no Docker, so the notebook
-compiles the existing `source/cuda/*.cu` directly with `nvcc` after building
-libMeshb and fetching cxxopts + a mesh — no changes to the project sources. (The
-Kokkos exercises would additionally need Kokkos built with CUDA; the notebook
-covers the CUDA versions.)
+compiles the existing `source/cuda/*.cu` directly with `nvcc`, and also builds the
+Kokkos programs with the CUDA backend (via the project's CMake) after building
+Kokkos. The meshes come with the repo; no changes to the project sources.
 
 ## Visualize with ViZiR
 
