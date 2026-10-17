@@ -14,6 +14,9 @@
 
 #include <cstdio>
 #include <exception>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
 
@@ -71,6 +74,8 @@ int main(int argc, char** argv) {
             ("i,input", "Input mesh (.meshb)", cxxopts::value<std::string>())
             ("m,method", "Computation method: geometric or third",
                 cxxopts::value<std::string>()->default_value("geometric"))
+            ("o,output-dir", "Write per-vertex median-cell areas to a CSV in this directory",
+                cxxopts::value<std::string>())
             ("h,help", "Print usage");
 
         options.parse_positional({"input"});
@@ -129,6 +134,23 @@ int main(int argc, char** argv) {
             double total = 0.0;
             Kokkos::parallel_reduce("sum_varea", n_ver,
                 KOKKOS_LAMBDA(int i, double& s) { s += varea(i); }, total);
+
+            // ---- Optional per-vertex CSV (1-based vertex ids) ----------------
+            if (args.count("output-dir")) {
+                const std::filesystem::path outdir = args["output-dir"].as<std::string>();
+                std::filesystem::create_directories(outdir);
+
+                auto h_varea = Kokkos::create_mirror_view(varea);
+                Kokkos::deep_copy(h_varea, varea);
+
+                std::ofstream csv(outdir / "median_cell_areas.csv");
+                csv << std::setprecision(17);  // full double precision
+                csv << "vertex,area\n";
+                for (int i = 0; i < n_ver; ++i) {
+                    csv << (i + 1) << "," << h_varea(i) << "\n";
+                }
+                std::cout << "Wrote " << (outdir / "median_cell_areas.csv") << "\n";
+            }
 
             // ---- Report -----------------------------------------------------
             std::printf("method: %s, vertices: %d, total median-cell area = %.15g\n",
