@@ -49,12 +49,20 @@ sources compile with `nvcc`; running them needs an NVIDIA GPU -- see below.)
 
 ## Build and run the project
 
-The project is supported via a `Docker` image. Build it, setting the GPU
-architecture for the Kokkos CUDA backend to match the card you will run on
-(V100=70, T4=75, A100=80, RTX30=86, L4=89, H100=90):
-```sh
-docker build -t mesh_gpu --build-arg CUDA_ARCH=75 .
-```
+The project is supported via a `Docker` image, with two Kokkos backends chosen at
+build time with `--build-arg KOKKOS_BACKEND=`:
+
+- **GPU image** (default) -- Kokkos on CUDA; set the arch to match your card
+  (V100=70, T4=75, A100=80, RTX30=86, L4=89, H100=90):
+  ```sh
+  docker build -t mesh_gpu --build-arg CUDA_ARCH=75 .
+  ```
+- **CPU image** -- Kokkos on Serial/OpenMP, for a machine **without** a GPU. The
+  `*_kokkos` programs then run on the CPU (no `libcuda` needed), which is handy for
+  local testing. (The raw `*_cuda` programs still require an NVIDIA GPU to run.)
+  ```sh
+  docker build -t mesh_gpu_cpu --build-arg KOKKOS_BACKEND=cpu .
+  ```
 
 To launch the docker image with everything setup to visualize using ViZir *from* the Docker image, run:
 ```sh
