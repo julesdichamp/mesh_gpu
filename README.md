@@ -115,9 +115,14 @@ is unchanged:
 docker build -t mesh_gpu --build-arg CUDA_ARCH=<your_gpu_sm> .
 docker run --gpus all -it --rm -v "$PWD":/workspace mesh_gpu
 ```
-For a free check, **Google Colab** (NVIDIA T4, `sm_75`) works too, but it has no
-Docker: install libMeshb + Kokkos in the notebook and compile the sources
-directly. Match `CUDA_ARCH`/`-DCMAKE_CUDA_ARCHITECTURES` to the VM's GPU.
+Match `CUDA_ARCH`/`-DCMAKE_CUDA_ARCHITECTURES` to the VM's GPU.
+
+For a **free** run of the CUDA exercises, open **`colab/mesh_gpu_colab.ipynb`** in
+Google Colab (free NVIDIA T4, `sm_75`). Colab has no Docker, so the notebook
+compiles the existing `source/cuda/*.cu` directly with `nvcc` after building
+libMeshb and fetching cxxopts + a mesh — no changes to the project sources. (The
+Kokkos exercises would additionally need Kokkos built with CUDA; the notebook
+covers the CUDA versions.)
 
 ## Visualize with ViZiR
 
