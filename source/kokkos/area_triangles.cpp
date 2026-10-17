@@ -1,9 +1,9 @@
-// Exercise 3 (Kokkos): total area of all triangles in a 2D mesh.
-// Same computation as the CUDA version, but portable: Kokkos runs on whichever
-// backend it was built with (CUDA on a GPU, Serial/OpenMP on a CPU). A single
-// parallel_reduce both stores each triangle's area in a View (for the CSV written
-// with --output-dir: triangle,v1,v2,v3,area, 1-based) and accumulates the total.
-// The triangles are CCW, so each signed area is positive.
+// Exercise 3 (Kokkos): total area of all triangles in a 2D mesh. Portable across
+// Kokkos backends (CUDA on a GPU, Serial/OpenMP on a CPU). The work is in the
+// dedicated triangle_areas() helper: one parallel_reduce that both stores each
+// triangle's area in a View (for the CSV written with --output-dir:
+// triangle,v1,v2,v3,area, 1-based) and accumulates the total. Triangles are CCW,
+// so each signed area is positive.
 
 #include <cstdio>
 #include <exception>
@@ -17,6 +17,23 @@
 #include <cxxopts.hpp>
 
 #include "mesh_io.h"
+
+// Compute every triangle's area (0.5 * cross) into `area` and return their sum --
+// one parallel_reduce that both writes the per-triangle View and accumulates total.
+double triangle_areas(Kokkos::View<double*> x, Kokkos::View<double*> y,
+                      Kokkos::View<int*> tri, int n_tri, Kokkos::View<double*> area) {
+    double total = 0.0;
+    Kokkos::parallel_reduce("triangle_areas", n_tri,
+        KOKKOS_LAMBDA(int t, double& sum) {
+            int a = tri(3 * t), b = tri(3 * t + 1), c = tri(3 * t + 2);
+            double abx = x(b) - x(a), aby = y(b) - y(a);
+            double acx = x(c) - x(a), acy = y(c) - y(a);
+            double at = 0.5 * (abx * acy - acx * aby);
+            area(t) = at;
+            sum += at;
+        }, total);
+    return total;
+}
 
 int main(int argc, char** argv) {
     try {
@@ -70,22 +87,9 @@ int main(int argc, char** argv) {
             Kokkos::deep_copy(y, hy);
             Kokkos::deep_copy(tri, htri);
 
-            // ---- Per-triangle areas, then reduce ----------------------------
+            // ---- Per-triangle areas + total (dedicated helper) --------------
             Kokkos::View<double*> area("area", n_tri);
-            Kokkos::parallel_for("triangle_areas", n_tri, KOKKOS_LAMBDA(int t) {
-                int a = tri(3 * t), b = tri(3 * t + 1), c = tri(3 * t + 2);
-                double abx = x(b) - x(a), aby = y(b) - y(a);
-                double acx = x(c) - x(a), acy = y(c) - y(a);
-                area(t) = 0.5 * (abx * acy - acx * aby);
-            });
-
-            double total = 0.0;
-            Kokkos::parallel_reduce("sum_area", n_tri,
-                KOKKOS_LAMBDA(int t, double& sum) { sum += area(t); }, total);
-
-
-                auto h_area = Kokkos::create_mirror_view(area);
-                Kokkos::deep_copy(h_area, area);
+            double total = triangle_areas(x, y, tri, n_tri, area);
 
             // ---- Per-triangle CSV (1-based ids, as in the mesh) -------------
             const std::filesystem::path outdir = args["output-dir"].as<std::string>();

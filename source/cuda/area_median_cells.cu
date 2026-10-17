@@ -11,6 +11,7 @@
 //               test (and it generalizes to Voronoi duals, where the share != 1/3).
 //   third     : use the identity directly, triangle_area / 3 per vertex.
 
+#include <cassert>
 #include <cstdio>
 #include <exception>
 #include <filesystem>
@@ -37,6 +38,7 @@ __device__ inline double tri_area(double px, double py, double qx, double qy,
 // sub-triangles (vertex, edge midpoint, centroid) whose areas are scattered to it.
 __global__ void scatter_geometric(const double* x, const double* y, const int* tri,
                                   int n_tri, double* varea) {
+    assert(blockDim.y == 1 && blockDim.z == 1);  // launched as a 1D grid of 1D blocks
     int t = blockIdx.x * blockDim.x + threadIdx.x;
     if (t >= n_tri) {
         return;
@@ -59,6 +61,7 @@ __global__ void scatter_geometric(const double* x, const double* y, const int* t
 // of its three vertices (the centroid identity, no polygon construction).
 __global__ void scatter_third(const double* x, const double* y, const int* tri,
                               int n_tri, double* varea) {
+    assert(blockDim.y == 1 && blockDim.z == 1);  // launched as a 1D grid of 1D blocks
     int t = blockIdx.x * blockDim.x + threadIdx.x;
     if (t >= n_tri) {
         return;

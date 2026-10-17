@@ -3,6 +3,7 @@
 // reduction sums them. The triangles are counter-clockwise, so each signed area is
 // already positive.
 
+#include <cassert>
 #include <cstdio>
 #include <exception>
 #include <filesystem>
@@ -19,9 +20,10 @@
 
 #include "mesh_io.h"
 
-// One thread per triangle: area = 0.5 * cross(B-A, C-A).
+// One thread per triangle: store its area via the 2D cross product. 1D kernel.
 __global__ void triangle_areas(const double* x, const double* y, const int* tri,
                                int n_tri, double* area) {
+    assert(blockDim.y == 1 && blockDim.z == 1);  // launched as a 1D grid of 1D blocks
     int t = blockIdx.x * blockDim.x + threadIdx.x;
     if (t >= n_tri) {
         return;

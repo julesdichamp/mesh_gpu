@@ -139,8 +139,8 @@ int main(int argc, char** argv) {
             const std::filesystem::path outdir = args["output-dir"].as<std::string>();
             std::filesystem::create_directories(outdir);
 
-                auto h_varea = Kokkos::create_mirror_view(varea);
-                Kokkos::deep_copy(h_varea, varea);
+            auto h_varea = Kokkos::create_mirror_view(varea);
+            Kokkos::deep_copy(h_varea, varea);
 
             std::ofstream csv(outdir / "median_cell_areas.csv");
             csv << std::setprecision(17);  // full double precision
