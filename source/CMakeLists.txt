@@ -3,6 +3,9 @@ project(mesh_gpu LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Kokkos is built without compiler (GNU) extensions and forces consumers to match,
+# printing a warning otherwise. Disable them up front so the warning never fires.
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -17,7 +20,7 @@ add_executable(extract_edges extract_edges.cpp)
 target_link_libraries(extract_edges PRIVATE Meshb.8 cxxopts::cxxopts)
 
 # --- Exercises 2-3 (GPU): triangle and median-cell areas ------------------
-# Same two programs in CUDA and in Kokkos; mesh_io.hpp (this dir) is shared.
+# Same two programs in CUDA and in Kokkos; mesh_io.h (this dir) is shared.
 set(AREA_PROGS area_triangles area_median_cells)
 
 # CUDA targets, only if a CUDA compiler is available.
@@ -25,17 +28,15 @@ include(CheckLanguage)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     # Must be set BEFORE enable_language(CUDA), which otherwise defaults to sm_52 --
-    # too old for double-precision atomicAdd (needs sm_60+). Default to NVIDIA T4
-    # (sm_75); override with -DCMAKE_CUDA_ARCHITECTURES=<sm> for your GPU
-    # (V100=70, T4=75, A100=80, A10/RTX30=86, L4=89, H100=90).
-    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        set(CMAKE_CUDA_ARCHITECTURES 75)
-    endif()
+    # too old for double-precision atomicAdd (needs sm_60+). A CACHE entry so it is
+    # visible/editable in ccmake and overridable with -DCMAKE_CUDA_ARCHITECTURES=<sm>
+    # for your GPU (V100=70, T4=75, A100=80, A10/RTX30=86, L4=89, H100=90).
+    set(CMAKE_CUDA_ARCHITECTURES 75 CACHE STRING "Target CUDA architecture(s), e.g. 75=T4, 80=A100")
     enable_language(CUDA)
     foreach(p ${AREA_PROGS})
         add_executable(${p}_cuda cuda/${p}.cu)
         target_include_directories(${p}_cuda PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries(${p}_cuda PRIVATE Meshb.8)
+        target_link_libraries(${p}_cuda PRIVATE Meshb.8 cxxopts::cxxopts)
         set_target_properties(${p}_cuda PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
     endforeach()
     message(STATUS "CUDA found: building *_cuda targets (arch ${CMAKE_CUDA_ARCHITECTURES})")
@@ -52,7 +53,7 @@ if(Kokkos_FOUND)
     foreach(p ${AREA_PROGS})
         add_executable(${p}_kokkos kokkos/${p}.cpp)
         target_include_directories(${p}_kokkos PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries(${p}_kokkos PRIVATE Meshb.8 Kokkos::kokkos)
+        target_link_libraries(${p}_kokkos PRIVATE Meshb.8 Kokkos::kokkos cxxopts::cxxopts)
         if(Kokkos_ENABLE_CUDA)
             enable_language(CUDA)
             set_source_files_properties(kokkos/${p}.cpp PROPERTIES LANGUAGE CUDA)

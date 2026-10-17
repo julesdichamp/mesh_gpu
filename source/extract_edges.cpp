@@ -1,5 +1,5 @@
 // Exercise 1 (CPU): extract every edge of a 2D triangular mesh together with its
-// left and right neighbouring triangle. The mesh is read through mesh_io.hpp.
+// left and right neighbouring triangle. The mesh is read through mesh_io.h.
 
 #include <algorithm>
 #include <filesystem>
@@ -13,7 +13,7 @@
 #include <cxxopts.hpp>
 #include <libmeshb8.h>
 
-#include "mesh_io.hpp"
+#include "mesh_io.h"
 
 using mesh_io::VertexCoords;
 using mesh_io::Connectivity;
@@ -48,10 +48,11 @@ auto extract_edge_neighbours(const Connectivity& triangles) -> EdgeNeighbors {
             const auto key = std::minmax(a, b);
 
             // a<b => this triangle walks the edge low->high, so it is the left.
-            if (a < b)
+            if (a < b) {
                 edges[{key.first, key.second}].left = tri_id;
-            else
+            } else {
                 edges[{key.first, key.second}].right = tri_id;
+            }
         }
     }
 
@@ -63,9 +64,10 @@ void write_edges_csv(const std::filesystem::path& path, const EdgeNeighbors& edg
     std::ofstream csv(path);
     csv << "v1,v2,left_tri,right_tri\n";
 
-    for (const auto& [verts, nb] : edges)
+    for (const auto& [verts, nb] : edges) {
         csv << verts.first << "," << verts.second << ","
             << nb.left << "," << nb.right << "\n";
+    }
 }
 
 // Write the extracted edges as a .meshb (vertices + edges) for ViZiR.
@@ -74,16 +76,19 @@ void write_edges_mesh(const std::filesystem::path& path, const VertexCoords& coo
     const int dim = 2;  // 2D exercise
     int64_t out = GmfOpenMesh(path.c_str(), GmfWrite, ver, dim);
 
-    if (!out)
+    if (!out) {
         throw std::runtime_error("Cannot write mesh file: " + path.string());
+    }
 
     GmfSetKwd(out, GmfVertices, static_cast<int64_t>(coords.size()));
-    for (const auto& c : coords)
+    for (const auto& c : coords) {
         GmfSetLin(out, GmfVertices, c[0], c[1], 0);
+    }
 
     GmfSetKwd(out, GmfEdges, static_cast<int64_t>(edges.size()));
-    for (const auto& [verts, nb] : edges)
+    for (const auto& [verts, nb] : edges) {
         GmfSetLin(out, GmfEdges, verts.first, verts.second, 0);
+    }
 
     GmfCloseMesh(out);
 }
@@ -119,19 +124,19 @@ int main(int argc, char** argv) {
         // ---- Read the mesh (shared libMeshb reader) -------------------------
         const mesh_io::Mesh mesh = mesh_io::read_mesh(input);
 
-        std::cout << "Mesh " << input << " (version " << mesh.ver << ", 2D): "
-                  << mesh.coords.size() << " vertices, " << mesh.tris.size()
+        std::cout << "Mesh " << input << " (version " << mesh.version << ", 2D): "
+                  << mesh.coordinates.size() << " vertices, " << mesh.triangles.size()
                   << " triangles\n";
 
         // ---- Extract the edge neighbours ------------------------------------
-        const auto edges = extract_edge_neighbours(mesh.tris);
+        const auto edges = extract_edge_neighbours(mesh.triangles);
 
         // ---- Write the outputs ----------------------------------------------
         const std::filesystem::path csv_path  = outdir / "edges_neighbours.csv";
         const std::filesystem::path mesh_path = outdir / "edges.meshb";
 
         write_edges_csv(csv_path, edges);
-        write_edges_mesh(mesh_path, mesh.coords, edges, mesh.ver);
+        write_edges_mesh(mesh_path, mesh.coordinates, edges, mesh.version);
 
         // ---- Summary --------------------------------------------------------
         const auto boundary = std::count_if(edges.begin(), edges.end(),

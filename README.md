@@ -26,7 +26,14 @@ Two quantities, each computed in parallel on the GPU and summed over the mesh:
 - **Median-cell areas** -- the median (barycentric-dual) cell of a vertex is, in
   each incident triangle, the quad (vertex, the two incident edge midpoints, the
   triangle centroid). Each triangle gives a portion to its three vertices,
-  scattered per vertex with atomic adds.
+  scattered per vertex with atomic adds. Because the medians meet at the centroid,
+  that portion is exactly `triangle_area / 3`. The median programs take
+  `--method geometric|third` to compute it either way:
+  - `geometric` (default) builds each dual-cell polygon explicitly, so the check
+    below is an independent test (and the approach generalizes to Voronoi duals,
+    where the share is *not* a third).
+  - `third` uses the `area/3` identity directly (then the check is true by
+    construction).
 
 Each triangle's three vertex portions sum to its area, so integrated over the mesh
 **Σ triangle areas == Σ median-cell areas** (both equal the domain area) -- that is
@@ -76,10 +83,11 @@ present, `*_kokkos` only when Kokkos is found. Run exercise 1 (CPU):
 
 Run the area programs and compare the two totals (they must match):
 ```sh
-./build/area_triangles_cuda      data/your_mesh.meshb
-./build/area_median_cells_cuda   data/your_mesh.meshb
-./build/area_triangles_kokkos    data/your_mesh.meshb
-./build/area_median_cells_kokkos data/your_mesh.meshb
+./build/area_triangles_cuda       data/your_mesh.meshb
+./build/area_median_cells_cuda    data/your_mesh.meshb                  # geometric (default)
+./build/area_median_cells_cuda    data/your_mesh.meshb --method third   # area/3 shortcut
+./build/area_triangles_kokkos     data/your_mesh.meshb
+./build/area_median_cells_kokkos  data/your_mesh.meshb --method geometric
 ```
 
 ### Running on a GPU
