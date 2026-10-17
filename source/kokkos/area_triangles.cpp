@@ -1,9 +1,9 @@
 // Exercise 3 (Kokkos): total area of all triangles in a 2D mesh.
 // Same computation as the CUDA version, but portable: Kokkos runs on whichever
-// backend it was built with (CUDA on a GPU, Serial/OpenMP on a CPU). We store each
-// triangle's area in a View (like the CUDA version) and then reduce it, so the
-// per-triangle values can also be written to CSV with --output-dir (1-based ids:
-// triangle,v1,v2,v3,area). The triangles are CCW, so each signed area is positive.
+// backend it was built with (CUDA on a GPU, Serial/OpenMP on a CPU). A single
+// parallel_reduce both stores each triangle's area in a View (for the CSV written
+// with --output-dir: triangle,v1,v2,v3,area, 1-based) and accumulates the total.
+// The triangles are CCW, so each signed area is positive.
 
 #include <cstdio>
 #include <exception>
@@ -26,8 +26,8 @@ int main(int argc, char** argv) {
 
         options.add_options()
             ("i,input", "Input mesh (.meshb)", cxxopts::value<std::string>())
-            ("o,output-dir", "Write per-triangle areas to a CSV in this directory",
-                cxxopts::value<std::string>())
+            ("o,output-dir", "Directory for the per-triangle areas CSV",
+                cxxopts::value<std::string>()->default_value("output"))
             ("h,help", "Print usage");
 
         options.parse_positional({"input"});
@@ -83,24 +83,26 @@ int main(int argc, char** argv) {
             Kokkos::parallel_reduce("sum_area", n_tri,
                 KOKKOS_LAMBDA(int t, double& sum) { sum += area(t); }, total);
 
-            // ---- Optional per-triangle CSV (1-based ids, as in the mesh) -----
-            if (args.count("output-dir")) {
-                const std::filesystem::path outdir = args["output-dir"].as<std::string>();
-                std::filesystem::create_directories(outdir);
 
                 auto h_area = Kokkos::create_mirror_view(area);
                 Kokkos::deep_copy(h_area, area);
 
-                std::ofstream csv(outdir / "triangle_areas.csv");
-                csv << std::setprecision(17);  // full double precision
-                csv << "triangle,v1,v2,v3,area\n";
-                for (int t = 0; t < n_tri; ++t) {
-                    csv << (t + 1) << ","
-                        << mesh.triangles[t][0] << "," << mesh.triangles[t][1] << ","
-                        << mesh.triangles[t][2] << "," << h_area(t) << "\n";
-                }
-                std::cout << "Wrote " << (outdir / "triangle_areas.csv") << "\n";
+            // ---- Per-triangle CSV (1-based ids, as in the mesh) -------------
+            const std::filesystem::path outdir = args["output-dir"].as<std::string>();
+            std::filesystem::create_directories(outdir);
+
+            auto h_area = Kokkos::create_mirror_view(area);
+            Kokkos::deep_copy(h_area, area);
+
+            std::ofstream csv(outdir / "triangle_areas.csv");
+            csv << std::setprecision(17);  // full double precision
+            csv << "triangle,v1,v2,v3,area\n";
+            for (int t = 0; t < n_tri; ++t) {
+                csv << (t + 1) << ","
+                    << mesh.triangles[t][0] << "," << mesh.triangles[t][1] << ","
+                    << mesh.triangles[t][2] << "," << h_area(t) << "\n";
             }
+            std::cout << "Wrote " << (outdir / "triangle_areas.csv") << "\n";
 
             // ---- Report -----------------------------------------------------
             std::printf("triangles: %d, total area = %.15g\n", n_tri, total);

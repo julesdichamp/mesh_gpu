@@ -98,10 +98,10 @@ Run the area programs and compare the two totals (they must match):
 ./build/area_median_cells_kokkos  data/your_mesh.meshb --method geometric
 ```
 
-Add `-o/--output-dir <dir>` to also write the per-element areas to CSV (1-based ids,
-as in the mesh): `area_triangles` writes `triangle_areas.csv`
-(`triangle,v1,v2,v3,area`) and `area_median_cells` writes `median_cell_areas.csv`
-(`vertex,area`). Their columns sum to the printed total.
+Each area program also writes a per-element CSV (1-based ids, as in the mesh) into
+`-o/--output-dir` (default `output`, like `extract_edges`): `area_triangles` writes
+`triangle_areas.csv` (`triangle,v1,v2,v3,area`) and `area_median_cells` writes
+`median_cell_areas.csv` (`vertex,area`). Their columns sum to the printed total.
 
 ### Running on a GPU
 

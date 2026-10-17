@@ -82,8 +82,8 @@ int main(int argc, char** argv) {
             ("i,input", "Input mesh (.meshb)", cxxopts::value<std::string>())
             ("m,method", "Computation method: geometric or third",
                 cxxopts::value<std::string>()->default_value("geometric"))
-            ("o,output-dir", "Write per-vertex median-cell areas to a CSV in this directory",
-                cxxopts::value<std::string>())
+            ("o,output-dir", "Directory for the per-vertex median-cell areas CSV",
+                cxxopts::value<std::string>()->default_value("output"))
             ("h,help", "Print usage");
 
         options.parse_positional({"input"});
@@ -141,20 +141,18 @@ int main(int argc, char** argv) {
 
         double total = thrust::reduce(dvarea.begin(), dvarea.end(), 0.0);
 
-        // ---- Optional per-vertex CSV (1-based vertex ids) --------------------
-        if (args.count("output-dir")) {
-            const std::filesystem::path outdir = args["output-dir"].as<std::string>();
-            std::filesystem::create_directories(outdir);
+        // ---- Per-vertex CSV (1-based vertex ids) ----------------------------
+        const std::filesystem::path outdir = args["output-dir"].as<std::string>();
+        std::filesystem::create_directories(outdir);
 
-            const thrust::host_vector<double> hvarea = dvarea;  // copy device -> host
-            std::ofstream csv(outdir / "median_cell_areas.csv");
-            csv << std::setprecision(17);  // full double precision
-            csv << "vertex,area\n";
-            for (int i = 0; i < n_ver; ++i) {
-                csv << (i + 1) << "," << hvarea[i] << "\n";
-            }
-            std::cout << "Wrote " << (outdir / "median_cell_areas.csv") << "\n";
+        const thrust::host_vector<double> hvarea = dvarea;  // copy device -> host
+        std::ofstream csv(outdir / "median_cell_areas.csv");
+        csv << std::setprecision(17);  // full double precision
+        csv << "vertex,area\n";
+        for (int i = 0; i < n_ver; ++i) {
+            csv << (i + 1) << "," << hvarea[i] << "\n";
         }
+        std::cout << "Wrote " << (outdir / "median_cell_areas.csv") << "\n";
 
         // ---- Report ---------------------------------------------------------
         std::printf("method: %s, vertices: %d, total median-cell area = %.15g\n",

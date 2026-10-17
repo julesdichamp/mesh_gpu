@@ -41,8 +41,8 @@ int main(int argc, char** argv) {
 
         options.add_options()
             ("i,input", "Input mesh (.meshb)", cxxopts::value<std::string>())
-            ("o,output-dir", "Write per-triangle areas to a CSV in this directory",
-                cxxopts::value<std::string>())
+            ("o,output-dir", "Directory for the per-triangle areas CSV",
+                cxxopts::value<std::string>()->default_value("output"))
             ("h,help", "Print usage");
 
         options.parse_positional({"input"});
@@ -89,22 +89,20 @@ int main(int argc, char** argv) {
 
         double total = thrust::reduce(darea.begin(), darea.end(), 0.0);
 
-        // ---- Optional per-triangle CSV (1-based ids, as in the mesh) ---------
-        if (args.count("output-dir")) {
-            const std::filesystem::path outdir = args["output-dir"].as<std::string>();
-            std::filesystem::create_directories(outdir);
+        // ---- Per-triangle CSV (1-based ids, as in the mesh) -----------------
+        const std::filesystem::path outdir = args["output-dir"].as<std::string>();
+        std::filesystem::create_directories(outdir);
 
-            const thrust::host_vector<double> harea = darea;  // copy device -> host
-            std::ofstream csv(outdir / "triangle_areas.csv");
-            csv << std::setprecision(17);  // full double precision
-            csv << "triangle,v1,v2,v3,area\n";
-            for (int t = 0; t < n_tri; ++t) {
-                csv << (t + 1) << ","
-                    << mesh.triangles[t][0] << "," << mesh.triangles[t][1] << ","
-                    << mesh.triangles[t][2] << "," << harea[t] << "\n";
-            }
-            std::cout << "Wrote " << (outdir / "triangle_areas.csv") << "\n";
+        const thrust::host_vector<double> harea = darea;  // copy device -> host
+        std::ofstream csv(outdir / "triangle_areas.csv");
+        csv << std::setprecision(17);  // full double precision
+        csv << "triangle,v1,v2,v3,area\n";
+        for (int t = 0; t < n_tri; ++t) {
+            csv << (t + 1) << ","
+                << mesh.triangles[t][0] << "," << mesh.triangles[t][1] << ","
+                << mesh.triangles[t][2] << "," << harea[t] << "\n";
         }
+        std::cout << "Wrote " << (outdir / "triangle_areas.csv") << "\n";
 
         // ---- Report ---------------------------------------------------------
         std::printf("triangles: %d, total area = %.15g\n", n_tri, total);
